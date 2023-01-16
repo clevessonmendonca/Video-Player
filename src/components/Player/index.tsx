@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { MdFullscreen, MdFullscreenExit, MdOutlineVolumeUp, MdPause, MdPlayArrow } from 'react-icons/md'
+import { MdFullscreen, MdFullscreenExit, MdOutlineVolumeUp, MdPause, MdPlayArrow, MdVolumeOff } from 'react-icons/md'
 import { Description } from '../Description';
 import { ListVideos } from '../ListVideos';
 
 interface IPlayerState {
     playing: boolean,
     percentage: number,
+    volume: number,
     fullscreen: boolean,
 }
 
@@ -13,14 +14,17 @@ const classAttributesControls = {
     'class': 'flex flex-col'
 }
 
-function usePlayerState($videoPlayer: React.MutableRefObject<HTMLVideoElement | null>): { playerState: IPlayerState;
-    toggleVideoPlay: () => void; handleTimeUpdate: () => void; handleChangeVideoPercentage: (event: React.ChangeEvent<HTMLInputElement>) => void;
+function usePlayerState($videoPlayer: React.MutableRefObject<HTMLVideoElement | null>, volumeBarControl: React.MutableRefObject<HTMLInputElement | null>): { 
+    playerState: IPlayerState;
+    toggleVideoPlay: () => void; handleTimeUpdate: () => void; handleVolumeChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    handleActiveVolumeBar: (event: React.MouseEvent<HTMLButtonElement>) => void; handleVolumeMuted: () => void; handleChangeVideoPercentage: (event: React.ChangeEvent<HTMLInputElement>) => void;
     handleModifyVideoSpeed: (event: React.ChangeEvent<HTMLSelectElement>) => void; handleFullscreenVideo: () => void;
 }
 {
     const [playerState, setPlayerState] = useState<IPlayerState>({
         playing: false,
         percentage: 0,
+        volume: 100,
         fullscreen: false
     })
 
@@ -57,6 +61,27 @@ function usePlayerState($videoPlayer: React.MutableRefObject<HTMLVideoElement | 
         })
     }
 
+    function handleVolumeChange(event: React.ChangeEvent<HTMLInputElement>) {
+        const value = Number((event.target as HTMLInputElement).value) / 100
+        const setVolume = $videoPlayer.current!.volume = value
+
+        setPlayerState({
+            ...playerState,
+            volume: setVolume
+        })
+    }
+
+    function handleActiveVolumeBar(event: React.MouseEvent<HTMLButtonElement>) {
+        volumeBarControl.current?.classList.remove('hidden')
+        event.target?.addEventListener('mouseleave', () => volumeBarControl.current?.classList.add('hidden'))
+    }
+
+    function handleVolumeMuted() {
+        const setVolume = $videoPlayer.current!.volume === 0 ? $videoPlayer.current!.volume = 1 : $videoPlayer.current!.volume = 0
+
+        setPlayerState({ ...playerState, volume: setVolume })
+    }
+
     function handleModifyVideoSpeed(event: React.ChangeEvent<HTMLSelectElement>) {
         const getValueSpeedVideo = Number(event.target.value)
 
@@ -85,6 +110,9 @@ function usePlayerState($videoPlayer: React.MutableRefObject<HTMLVideoElement | 
         toggleVideoPlay,
         handleTimeUpdate,
         handleChangeVideoPercentage,
+        handleVolumeChange,
+        handleActiveVolumeBar,
+        handleVolumeMuted,
         handleModifyVideoSpeed,
         handleFullscreenVideo
     }
@@ -92,7 +120,8 @@ function usePlayerState($videoPlayer: React.MutableRefObject<HTMLVideoElement | 
 
 export const Player = () => {
     const $videoPlayer = useRef<HTMLVideoElement | null>(null)
-    const { playerState, toggleVideoPlay, handleTimeUpdate, handleChangeVideoPercentage, handleModifyVideoSpeed, handleFullscreenVideo } = usePlayerState($videoPlayer)
+    const volumeBarControl = useRef<HTMLInputElement | null>(null)
+    const { playerState, toggleVideoPlay, handleTimeUpdate, handleChangeVideoPercentage, handleVolumeChange, handleActiveVolumeBar, handleVolumeMuted, handleModifyVideoSpeed, handleFullscreenVideo } = usePlayerState($videoPlayer, volumeBarControl)
 
   return (
     <div>
@@ -100,6 +129,7 @@ export const Player = () => {
             ref={$videoPlayer}
             src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
             onTimeUpdate={handleTimeUpdate}
+            onClick={toggleVideoPlay}
             className='w-full aspect-video relative'
         />
         <div className={classAttributesControls.class}>
@@ -110,21 +140,30 @@ export const Player = () => {
                 onChange={handleChangeVideoPercentage}
                 value={playerState.percentage}
             />
-            <div className='flex justify-between container mx-auto  items-center'>
+            <div className='flex justify-between container mx-auto items-center'>
                 <div className='flex gap-2'>
                     <button onClick={toggleVideoPlay}>
                     { playerState.playing ? <MdPause/> : <MdPlayArrow/> }
                     </button>
-                    <button>
-                        <MdOutlineVolumeUp />
+                    <button className='flex gap-1 items-center' onMouseOver={handleActiveVolumeBar}>
+                        {playerState.volume === 0 ? <MdVolumeOff onClick={handleVolumeMuted} /> : <MdOutlineVolumeUp onClick={handleVolumeMuted} />}
+                        <input  
+                            ref={volumeBarControl}
+                            className='range-sm w-12 h-1 bg-black cursor-pointer z-40 hidden'
+                            type="range" name="" id="" 
+                            min="0"
+                            max="100"
+                            onChange={handleVolumeChange}
+                            value={playerState.volume * 100}
+                        />
                     </button>
                 </div>
                 
                 <div className='flex gap-4 items-center pt-1'>
-                    <select  className='text-black bg-gray-50 border border-gray-300 text-sm rounded-lg' onChange={handleModifyVideoSpeed}>
+                    <select  className='text-black bg-gray-50 border border-gray-300 text-sm rounded-lg cursor-pointer' onChange={handleModifyVideoSpeed}>
                         {
                         [1, 2, 3].map((speed) => {
-                            return <option key={ speed }>
+                            return <option className='cursor-pointer' key={ speed }>
                                 { speed }
                             </option>
                         })
